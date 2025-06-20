@@ -7,18 +7,18 @@ Server::Server(boost::asio::io_context& io_context, int port)
     acceptor(io_context, endpoint)
 {}
 
-void Server::scan(){
+void Server::scan(Session* incoming_session){
     std::cout << "Open for connections ... " << std::endl;
-    std::shared_ptr<Session> session = std::make_shared<Session>(io_context, this);
-    acceptor.async_accept(session->get_socket(), 
-    [this, session](const boost::system::error_code& error){
+    acceptor.async_accept(incoming_session->get_socket(), 
+    [this, incoming_session](const boost::system::error_code& error){
         if (error){
-            std::cerr << "Connection Error: " << error.message() << std::endl;
-            std::cout << "Retrying ..." << std::endl;
-            scan();
+            std::cerr << "(Server) Connection Error: " << error.message() << std::endl;
+            std::cout << "Retry? (y/n)" << std::endl;
+            //checks to see if they want to retry again
+            scan(incoming_session);
         }
         else if (!error){
-            session->handshake();
+            incoming_session->handshake();
         }
     });
 }

@@ -1,6 +1,5 @@
 #include <boost/asio.hpp>
 #include <iostream>
-#include <memory>
 
 //Forward Declaration
 class Session;
@@ -12,7 +11,7 @@ class Server {
     Server(boost::asio::io_context& io_context, int port);
 
     //Starts scanning for connections (asynchronous)
-    void scan();
+    void scan(Session* session);
 
     private:
 
