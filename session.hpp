@@ -1,4 +1,5 @@
 #include "server.hpp"
+#include <boost/asio/posix/stream_descriptor.hpp>
 #include <string>
 
 class Session {
@@ -25,11 +26,10 @@ class Session {
     private:
 
     //Displays messages from this session (asynchronous)
-    void start_read();
     boost::asio::awaitable<void> read();
 
     //Sends messages from this session (asynchronous)
-    void send();
+    boost::asio::awaitable<void> send(boost::asio::posix::stream_descriptor& input_stream);
 
     boost::asio::awaitable<void> incoming_handshake();
     void msg_confirmation(std::string msg);
@@ -41,6 +41,6 @@ class Session {
     Server* server_ptr;
     bool status;
     boost::asio::io_context& io;
-    char output[1024];
-    char input[1024];
+    boost::asio::streambuf output;
+    boost::asio::streambuf input;
 };

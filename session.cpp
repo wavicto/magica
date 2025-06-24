@@ -26,11 +26,19 @@ void Session::process_handshake(){
 
 awaitable<void> Session::incoming_handshake(){
     try {
-        size_t length = co_await socket.async_read_some(boost::asio::buffer(output, 1024), use_awaitable);
-        std::string msg(this->output, length);
-        msg_confirmation(msg);
+        size_t length = co_await boost::asio::async_read_until(socket, output, '\n', use_awaitable);
+        std::string message;
+        std::istream input_stream(&output);
+        std::getline(input_stream, message);
+        msg_confirmation(message);
         if (status){
-            this->read();
+            boost::asio::posix::stream_descriptor input_stream(io, ::dup(STDIN_FILENO));
+            co_spawn(
+                io, 
+                [this]() -> awaitable<void> {
+                    co_await read();
+                }, 
+                detached);
         }
     }
     catch (const boost::system::system_error& error){
@@ -39,29 +47,35 @@ awaitable<void> Session::incoming_handshake(){
     co_return;
 }
 
-void Session::read(){
+boost::asio::awaitable<void> Session::send(boost::asio::posix::stream_descriptor& input_stream){
+    try {
+        co_await boost::asio::async_read_until(input_stream, input, '\n', use_awaitable);
+    }
+    catch {
 
+    }
 }
 
 awaitable<void> Session::read(){
     try{
-        size_t length = co_await socket.async_read_some(boost::asio::buffer(output, 1024), use_awaitable);
-        std::cout << "User: ";
-        std::cout.write(this->output, length);
-        std::cout << std::endl;
-        this->read();
+        while (true){
+            size_t length = co_await boost::asio::async_read_until(socket, output, '\n', use_awaitable);
+            std::string message;
+            std::istream input_stream(&output);
+            std::getline(input_stream, message);
+            std::cout << "User: " << message << std::endl;
+        }
     }
     catch (const boost::system::system_error& error){
-        if (error == boost::asio::error::eof) {
+        if (error.code() == boost::asio::error::eof) {
             std::cout << "User disconnected." << std::endl;
         }
         else {
             std::cerr << "(Session) Failed to receive message: " << error.what() << std::endl;
         }
     }
+    co_return;
 }
-
-
 
 void Session::kill_session(){
     status = false;
