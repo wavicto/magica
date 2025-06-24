@@ -17,9 +17,12 @@ class Server {
     //Starts scanning for connections (asynchronous)
     void start_scan(Session* incoming_session);
 
+    void start_connect(Session* outgoing_session);
+
     private:
 
     boost::asio::awaitable<void> scan(Session* incoming_session);
+    boost::asio::awaitable<void> connect();
 
     boost::asio::io_context& io;
     boost::asio::ip::tcp::endpoint endpoint;

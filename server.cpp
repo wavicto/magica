@@ -14,6 +14,15 @@ Server::Server(io_context& io, int port)
     acceptor(io, endpoint)
 {}
 
+void Server::start_scan(Session* incoming_session){
+    co_spawn(
+        io, 
+        [this, incoming_session]() -> awaitable<void> {
+            co_await scan(incoming_session);
+        }, 
+        detached);
+}
+
 awaitable<void> Server::scan(Session* incoming_session){
     std::cout << "Open for connections ... " << std::endl;
     try {
@@ -26,12 +35,6 @@ awaitable<void> Server::scan(Session* incoming_session){
     co_return;
 }
 
-void Server::start_scan(Session* incoming_session){
-    co_spawn(
-        io, 
-        [this, incoming_session]() -> awaitable<void> {
-            co_await scan(incoming_session);
-        }, 
-        detached);
-}
+awaitable<void> Server::start_connect(Session* outgoing_session){
 
+}

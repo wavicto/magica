@@ -24,19 +24,35 @@ void Session::process_handshake(){
         detached);
 }
 
+void Session::send_handshake(){
+    co_spawn(
+        io, 
+        [this]() -> awaitable<void> {
+            co_await outgoing_handshake();
+        }, 
+        detached);
+}
+
 awaitable<void> Session::incoming_handshake(){
     try {
         size_t length = co_await boost::asio::async_read_until(socket, output, '\n', use_awaitable);
         std::string message;
-        std::istream input_stream(&output);
-        std::getline(input_stream, message);
+        std::istream stream(&output);
+        std::getline(stream, message);
         msg_confirmation(message);
+        output.consume(length);
         if (status){
             boost::asio::posix::stream_descriptor input_stream(io, ::dup(STDIN_FILENO));
             co_spawn(
                 io, 
                 [this]() -> awaitable<void> {
                     co_await read();
+                }, 
+                detached);
+            co_spawn(
+                io, 
+                [this, &input_stream]() -> awaitable<void> {
+                    co_await send(input_stream);
                 }, 
                 detached);
         }
@@ -47,12 +63,44 @@ awaitable<void> Session::incoming_handshake(){
     co_return;
 }
 
+awaitable<void> Session::outgoing_handshake(){
+    try {
+        std::string key = "REQUEST\n";
+        co_await boost::asio::async_write(socket, boost::asio::buffer(key), use_awaitable);
+        boost::asio::posix::stream_descriptor input_stream(io, ::dup(STDIN_FILENO));
+        co_spawn(
+            io, 
+            [this]() -> awaitable<void> {
+                co_await read();
+            }, 
+            detached);
+        co_spawn(
+            io, 
+            [this, &input_stream]() -> awaitable<void> {
+                co_await send(input_stream);
+            }, 
+            detached);
+    }
+    catch (const boost::system::system_error& error){
+        std::cerr << "(Session) Failed to send message: " << error.what() << std::endl;
+    }
+}
+
 boost::asio::awaitable<void> Session::send(boost::asio::posix::stream_descriptor& input_stream){
     try {
-        co_await boost::asio::async_read_until(input_stream, input, '\n', use_awaitable);
+        while (true){
+            size_t length = co_await boost::asio::async_read_until(input_stream, input, '\n', use_awaitable);
+            co_await boost::asio::async_write(socket, input, use_awaitable);
+            input.consume(length);
+        }
     }
-    catch {
-
+    catch (const boost::system::system_error& error){
+        if (error.code() == boost::asio::error::eof) {
+            std::cout << "User disconnected." << std::endl;
+        }
+        else {
+            std::cerr << "(Session) Failed to send message: " << error.what() << std::endl;
+        }
     }
 }
 
@@ -61,9 +109,10 @@ awaitable<void> Session::read(){
         while (true){
             size_t length = co_await boost::asio::async_read_until(socket, output, '\n', use_awaitable);
             std::string message;
-            std::istream input_stream(&output);
-            std::getline(input_stream, message);
+            std::istream stream(&output);
+            std::getline(stream, message);
             std::cout << "User: " << message << std::endl;
+            output.consume(length);
         }
     }
     catch (const boost::system::system_error& error){
