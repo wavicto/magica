@@ -8,10 +8,10 @@ class Session {
     Session(boost::asio::io_context& io_context, Server* ptr);
 
     //Verifies incoming session
-    void incoming_handshake();
+    void process_handshake();
 
     //Verifies outgoing session
-    void outgoing_handshake();
+    void send_handshake();
 
     //Renders session inactive
     void kill_session();
@@ -25,10 +25,17 @@ class Session {
     private:
 
     //Displays messages from this session (asynchronous)
-    void read();
+    void start_read();
+    boost::asio::awaitable<void> read();
 
     //Sends messages from this session (asynchronous)
     void send();
+
+    boost::asio::awaitable<void> incoming_handshake();
+    void msg_confirmation(std::string msg);
+
+    boost::asio::awaitable<void> outgoing_handshake();
+    void send_confirmation(std::string msg);
 
     boost::asio::ip::tcp::socket socket;
     Server* server_ptr;
